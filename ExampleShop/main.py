@@ -1,16 +1,47 @@
 import aiogram
 from aiogram import Bot,Dispatcher,executor,types
+from aiogram.types import ReplyKeyboardMarkup
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
-
 bot=Bot(os.getenv("TOKEN"))
 dp=Dispatcher(bot=bot)
 
+main_keyboard=ReplyKeyboardMarkup(resize_keyboard=True)
+main_keyboard.add("Catalog").add('Card').add("Contacts")
+
+main_admin=ReplyKeyboardMarkup(resize_keyboard=True)
+main_admin.add("Catalog").add('Card').add("Contacts").add("Admin Panel")
+
+admin_panel=ReplyKeyboardMarkup(resize_keyboard=True)
+admin_panel.add("Add product").add('Delete product').add('Change Prise')
+
 @dp.message_handler(commands=['start'])
 async def start(message: types.message):
-    await message.answer(f'{message.from_user.first_name}, Hello')
+    if message.from_user.id==int(os.getenv("ADMIN_ID")):
+        await message.answer(f'Hello Admin!', reply_markup=main_admin)
+    else:
+        await message.answer(f'{message.from_user.first_name}, Hello', reply_markup=main_keyboard)
+
+@dp.message_handler(text='Admin Panel')
+async def contacts(message: types.message):
+    if message.from_user.id==int(os.getenv("ADMIN_ID")):
+        await message.answer(f'Welcome to admin panel ',reply_markup=admin_panel) 
+    else:
+        await message.reply("You don`t have access")
+
+@dp.message_handler(text='Contacts')
+async def contacts(message: types.message):
+    await message.answer(f'контакты продавца')
+
+@dp.message_handler(text='Card')
+async def card(message: types.message):
+    await message.answer(f'test2')
+
+@dp.message_handler(text='Catalog')
+async def contacts(message: types.message):
+    await message.answer(f'test 1')
 
 @dp.message_handler()
 async def wrong_command(message: types.Message):
