@@ -1,7 +1,0 @@
-<!-- catalog.html -->
-{% for product in products %}
-    <h2>{{ product.name }}</h2>
-    <p>{{ product.description }}</p>
-    <a href="{% url 'delete_product' product.id %}">Delete</a>
-{% endfor %}
-<a href="{% url 'add_product' %}">Add Product</a>
