@@ -6,6 +6,7 @@ from aiogram.dispatcher import FSMContext
 from app import keyboards as kb
 from app import db,states
 from dotenv import load_dotenv
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 storage=MemoryStorage()
 load_dotenv()
@@ -24,7 +25,7 @@ async def start(message: types.message):
     if message.from_user.id==int(os.getenv("ADMIN_ID")):# проверка на пользователя на роль админа
         await message.answer(f'Hello Admin!', reply_markup=kb.main_admin)# вызов клавиатуры для админа
     else:
-        await message.answer(f'{message.from_user.first_name}, Hello', reply_markup=kb.main_keyboard)#вызов клавиатуры для пользователя
+        await message.answer(f'{message.from_user.id}, Hello', reply_markup=kb.main_keyboard)#вызов клавиатуры для пользователя
 
 @dp.message_handler(text='Admin Panel')# обработчик для админ панели
 async def contacts(message: types.message):
@@ -33,23 +34,23 @@ async def contacts(message: types.message):
     else:
         await message.reply("You don`t have access")
 
-@dp.message_handler(text='Add product')
+@dp.message_handler(text='Add product')# Добавление новых товаров 
 async def add_item(message: types.message):
     if message.from_user.id==int(os.getenv("ADMIN_ID")):
-        await states.NewOrder.type.set()
+        await states.NewItem.type.set()
         await message.answer(f'Выберите тип товара : ',reply_markup=kb.catalog_list )
     else:
         await message.reply("You don`t have access")
 
-@dp.callback_query_handler(state=states.NewOrder.type)
+@dp.callback_query_handler(state=states.NewItem.type)# Добавление типа товара и запрос на название
 async def add_item_type(call: types.CallbackQuery, state:FSMContext):
     async with state.proxy() as data:
         data['type']=call.data
     await call.message.answer(f'Напишите название товара: ', reply_markup=kb.cancel)
-    await states.NewOrder.next()
+    await states.NewItem.next()
 
 
-@dp.message_handler(state=states.NewOrder.name)
+@dp.message_handler(state=states.NewItem.name)# Добавление название товара и запрос на описание
 async def add_item_name(message: types.Message, state:FSMContext):
     if message.text=="Отмена":
         await state.finish()
@@ -58,9 +59,9 @@ async def add_item_name(message: types.Message, state:FSMContext):
         async with state.proxy() as data:
             data['name']=message.text
         await message.answer(f'Напишите описание товара', reply_markup=kb.cancel) 
-        await states.NewOrder.next()
+        await states.NewItem.next()
 
-@dp.message_handler(state=states.NewOrder.desc)
+@dp.message_handler(state=states.NewItem.desc)# Добавление описание товара и запрос на цену
 async def add_item_desc(message: types.Message, state:FSMContext):
     if message.text=="Отмена":
         await state.finish()
@@ -69,9 +70,9 @@ async def add_item_desc(message: types.Message, state:FSMContext):
         async with state.proxy() as data:
             data['desc']=message.text
         await message.answer(f'Напишите цену товара', reply_markup=kb.cancel) 
-        await states.NewOrder.next()
+        await states.NewItem.next()
 
-@dp.message_handler(state=states.NewOrder.price)
+@dp.message_handler(state=states.NewItem.price)# Добавление цены товара и запрос на фото
 async def add_item_price(message: types.Message, state:FSMContext):
     if message.text=="Отмена":
         await state.finish()
@@ -80,14 +81,14 @@ async def add_item_price(message: types.Message, state:FSMContext):
         async with state.proxy() as data:
             data['price']=message.text
         await message.answer(f'Добавьте фото товара', reply_markup=kb.cancel) 
-        await states.NewOrder.next()
+        await states.NewItem.next()
 
-@dp.message_handler(lambda message: not message.photo, state=states.NewOrder.photo)
+@dp.message_handler(lambda message: not message.photo, state=states.NewItem.photo)# проверка на фото
 async def add_item_photo_check(message: types.Message):
     await message.answer(f'Это не фото')
     
     
-@dp.message_handler(content_types=['photo'], state=states.NewOrder.photo)
+@dp.message_handler(content_types=['photo'], state=states.NewItem.photo)#Добавление фото товара и сохранение в базу данных
 async def add_item_photo(message: types.Message, state:FSMContext):
     async with state.proxy() as data:
         data['photo']=message.photo[0].file_id
@@ -107,25 +108,31 @@ async def card(message: types.message):
 @dp.message_handler(text='Catalog')# обработчик для каталога
 async def contacts(message: types.message):
     await message.answer(f'Каталог',reply_markup=kb.catalog_list)
+    await states.NewOrder.type.set()
 
 @dp.message_handler()#обработчик для неверных запросов
 async def wrong_command(message: types.Message):
     await message.reply("I dont understand you")
 
-@dp.callback_query_handler()
-async def callback_query_keyboard(callback_query: types.CallbackQuery):
-    if callback_query.data == "Товар 1":
-        await bot.send_message(chat_id=callback_query.from_user.id, text="Товар 1 успешно добавлен в корзину")
-    elif callback_query.data == "Товар 2":
-        await bot.send_message(chat_id=callback_query.from_user.id, text="Товар 2 успешно добавлен в корзину")
-    elif callback_query.data == "Товар 3":
-        await bot.send_message(chat_id=callback_query.from_user.id, text="Товар 3 успешно добавлен в корзину")
-    elif callback_query.data == "Товар 4":
-        await bot.send_message(chat_id=callback_query.from_user.id, text="Товар 4 успешно добавлен в корзину")
-    elif callback_query.data == "Товар 5":
-        await bot.send_message(chat_id=callback_query.from_user.id, text="Товар 5 успешно добавлен в корзину")
-    elif callback_query.data == "Товар 6":
-        await bot.send_message(chat_id=callback_query.from_user.id, text="Товар 6 успешно добавлен в корзину")
+
+@dp.callback_query_handler(state=states.NewOrder.type)
+async def chose_item_type(call: types.CallbackQuery, state:FSMContext):
+    async with state.proxy() as data:
+        data['type']=call.data
+    items = await db.add_item_to_card(state)
+    for item in items:
+        name, desc, price, photo_id = item
+        make_order=InlineKeyboardMarkup(row_width=1)
+        make_order.add(InlineKeyboardButton(text='Заказать', callback_data=str(name)))
+        await call.message.answer_photo(photo_id, caption=f'Название: {name}\n Описание: {desc}\n Цена: {price}',reply_markup=make_order)
+    await states.NewOrder.next()
+
+@dp.message_handler(state=states.NewOrder.name)
+async def chose_item(message: types.Message, state:FSMContext):
+    pass# привязать клаву-счетчик и сделать запрос на следующий товар
+""".add(InlineKeyboardButton('+', callback_data=f'{counter+1}')).add(InlineKeyboardButton('-', callback_data=f'{counter-1}'))"""
+
+
 
 if __name__=='__main__':
     executor.start_polling(dp, on_startup=on_startup, skip_updates=True)

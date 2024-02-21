@@ -20,3 +20,5 @@ catalog_list.add(InlineKeyboardButton(text='Товар 1', callback_data='Тов
 
 cancel=ReplyKeyboardMarkup(resize_keyboard=True)
 cancel.add("Отмена")
+
+
