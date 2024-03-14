@@ -108,31 +108,97 @@ async def card(message: types.message):
 @dp.message_handler(text='Catalog')# обработчик для каталога
 async def contacts(message: types.message):
     await message.answer(f'Каталог',reply_markup=kb.catalog_list)
-    await states.NewOrder.type.set()
+    await states.NewOrder.type.set()# Начало нового state
 
 @dp.message_handler()#обработчик для неверных запросов
 async def wrong_command(message: types.Message):
     await message.reply("I dont understand you")
 
-
 @dp.callback_query_handler(state=states.NewOrder.type)
 async def chose_item_type(call: types.CallbackQuery, state:FSMContext):
     async with state.proxy() as data:
-        data['type']=call.data
-    items = await db.add_item_to_card(state)
+        data['type'] = call.data
+        print(data)
+    items = await db.find_item(state)
+    
     for item in items:
-        name, desc, price, photo_id = item
-        make_order=InlineKeyboardMarkup(row_width=1)
-        make_order.add(InlineKeyboardButton(text='Заказать', callback_data=str(name)))
-        await call.message.answer_photo(photo_id, caption=f'Название: {name}\n Описание: {desc}\n Цена: {price}',reply_markup=make_order)
+        item_id,name, desc, price, photo_id = item
+        print("item :",item)
+        make_order = InlineKeyboardMarkup(row_width=1)
+        make_order.add(InlineKeyboardButton(text='Заказать', callback_data=str(item_id)))
+        await call.message.answer_photo(photo_id, caption=f'Название: {name}\nОписание: {desc}\nЦена: {price}', reply_markup=make_order)
+    await states.NewOrder.item.set()
+
+@dp.callback_query_handler(state=states.NewOrder.item)
+async def chose_item(call: types.CallbackQuery, state:FSMContext):
+    async with state.proxy() as data:
+        data['item_id'] = call.data
+        while not data['item_id'].isdigit():
+            await call.message.answer("Не верный выбор")
+            #message = await dp.bot.next_update()
+        print(data)
+    await call.message.answer(f'Укажите количество',reply_markup=kb.cancel)
     await states.NewOrder.next()
 
-@dp.message_handler(state=states.NewOrder.name)
-async def chose_item(message: types.Message, state:FSMContext):
-    pass# привязать клаву-счетчик и сделать запрос на следующий товар
-""".add(InlineKeyboardButton('+', callback_data=f'{counter+1}')).add(InlineKeyboardButton('-', callback_data=f'{counter-1}'))"""
+
+@dp.message_handler(state=states.NewOrder.count)
+async def chose_count(message: types.Message, state:FSMContext):
+    async with state.proxy() as data:
+        while not message.text.isdigit():
+            await message.reply("Введите корректное количество")
+            message = await dp.bot.next_update()
+           
+        data['count'] = message.text
+        data['user_id'] = message.from_user.id
+        await state.update_data(count=data['count'])
+        print(data)
+        await db.add_item_to_card(state,data['user_id'])
+        await message.answer(f'Товар успешно доабвлен в корзину',reply_markup=kb.back)
+        #if message.text == "Назад":
+            #await state.finish() 
+            #await message.answer(f'Каталог',reply_markup=kb.catalog_list)  Не работает кнопка не срабатывает
+            #await states.NewOrder.type.set()
+            #return
+        await states.NewOrder.type.set()
+        
+@dp.message_handler(state=states.InfoCard.adress)
+async def add_adress(message: types.Message, state:FSMContext):
+    if message.text=="Отмена":
+        await state.finish()
+        await message.answer('Отмена!',reply_markup=kb.main_keyboard)
+    else:
+        async with state.proxy() as data:
+            data['adress']=message.text
+        await message.answer(f'Укажите номер телефона с использованием +7',reply_markup=kb.cancel)
+        await states.NewOrder.next()
+
+@dp.message_handler(lambda message: not len(message.text)==12, state=states.InfoCard.phone)# проверка количество цифр в номере
+async def phone_check(message: types.Message):
+    if len(message.text)!=12:
+        await message.answer(f'Вы ввели неправильный номер')
 
 
+@dp.message_handler(state=states.InfoCard.phone)
+async def add_phone(message: types.Message, state:FSMContext):
+    if message.text=="Отмена":
+        await state.finish()
+        await message.answer('Отмена!',reply_markup=kb.main_keyboard)
+    else:
+        async with state.proxy() as data:
+            data['phone']=message.text
+        await message.answer(f'Добавьте комментарий к заказу',reply_markup=kb.cancel)
+        await states.NewOrder.next()
 
+@dp.message_handler(state=states.InfoCard.phone)
+async def add_comments(message: types.Message, state:FSMContext):
+    if message.text=="Отмена":
+        await state.finish()
+        await message.answer('Отмена!',reply_markup=kb.main_keyboard)
+    else:
+        async with state.proxy() as data:
+            data['comments']=message.text
+        await message.answer(f'Заказ передан для оформления!')
+        await state.finish()
+#сделать метод в бд для добавления в корзину и переделать методы так чтобы всю инфу по типу адреса и т.п запрашивало в корзине а не в каталоге 
 if __name__=='__main__':
     executor.start_polling(dp, on_startup=on_startup, skip_updates=True)

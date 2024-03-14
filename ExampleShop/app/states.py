@@ -13,3 +13,8 @@ class NewOrder(StatesGroup):
     type= State()
     item= State()
     count= State()
+    
+class InfoCard(StatesGroup):
+    adress = State()
+    phone = State()
+    comment = State()

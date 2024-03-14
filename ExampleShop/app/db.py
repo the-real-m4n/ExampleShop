@@ -17,8 +17,9 @@ async def start_db():
                 )""")
     cur.execute("""CREATE TABLE IF NOT EXISTS card (
                 card_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                items TEXT,
-                count INTEGER,
+                item_id TEXT,
+                user_id TEXT,
+                count TEXT,
                 adress TEXT,
                 phone_number TEXT,
                 comment TEXT
@@ -50,11 +51,37 @@ async def add_item(state):
         db.commit()
     db.close()
 
-async def add_item_to_card(state):
+async def find_item(state):
     db = sq.connect("bot_db.db")
     cur = db.cursor() 
     async with state.proxy() as data:
-        cur.execute("""SELECT name,desc,price,photo FROM items WHERE type == ?""", (data['type'],))
+        cur.execute("""SELECT item_id,name,desc,price,photo FROM items WHERE type == ?""", (data['type'],))
         items = cur.fetchall()
     db.close()
     return items
+
+async def add_item_to_card(state,user_id):
+    db = sq.connect("bot_db.db")
+    cur = db.cursor() 
+    async with state.proxy() as data:
+        count=str(data.get('count','0'))
+        cur.execute("""INSERT INTO card (user_id,item_id,count) VALUES (?,?,?) """,
+                   (user_id,
+                    data['item_id'],
+                    count,)
+                     )
+        db.commit()
+    db.close()
+
+    
+async def add_order_info(state):
+    db = sq.connect("bot_db.db")
+    cur = db.cursor() 
+    async with state.proxy() as data:
+        cur.execute("""INSERST INTO card (adress,phone_number,comment) VALUES(?,?,?)""",(
+            data['adress'],
+            data['phone_number'],
+            data['comment']
+        ))
+        db.commit()
+    db.close()
