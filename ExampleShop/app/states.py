@@ -13,6 +13,7 @@ class NewOrder(StatesGroup):
     type= State()
     item= State()
     count= State()
+    back_check=State()
     
 class InfoCard(StatesGroup):
     adress = State()

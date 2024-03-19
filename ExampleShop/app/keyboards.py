@@ -22,4 +22,4 @@ cancel=ReplyKeyboardMarkup(resize_keyboard=True)
 cancel.add("Отмена")
 
 back=ReplyKeyboardMarkup(resize_keyboard=True)
-back.add("Назад")
+back.add("Добавить товар").add('Каталог')

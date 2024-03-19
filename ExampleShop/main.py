@@ -7,7 +7,7 @@ from app import keyboards as kb
 from app import db,states
 from dotenv import load_dotenv
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
+import time
 storage=MemoryStorage()
 load_dotenv()
 bot=Bot(os.getenv("TOKEN"))
@@ -110,6 +110,12 @@ async def contacts(message: types.message):
     await message.answer(f'Каталог',reply_markup=kb.catalog_list)
     await states.NewOrder.type.set()# Начало нового state
 
+"""@dp.message_handler(text='Назад')
+async def back_button_handler(message: types.Message, state:FSMContext):
+    await state.finish() 
+    await message.answer(f'Каталог',reply_markup=kb.catalog_list)
+    await states.NewOrder.type.set()"""
+
 @dp.message_handler()#обработчик для неверных запросов
 async def wrong_command(message: types.Message):
     await message.reply("I dont understand you")
@@ -133,12 +139,13 @@ async def chose_item_type(call: types.CallbackQuery, state:FSMContext):
 async def chose_item(call: types.CallbackQuery, state:FSMContext):
     async with state.proxy() as data:
         data['item_id'] = call.data
+        print(data['item_id'])
         while not data['item_id'].isdigit():
             await call.message.answer("Не верный выбор")
-            #message = await dp.bot.next_update()
         print(data)
     await call.message.answer(f'Укажите количество',reply_markup=kb.cancel)
     await states.NewOrder.next()
+
 
 
 @dp.message_handler(state=states.NewOrder.count)
@@ -147,19 +154,30 @@ async def chose_count(message: types.Message, state:FSMContext):
         while not message.text.isdigit():
             await message.reply("Введите корректное количество")
             message = await dp.bot.next_update()
-           
         data['count'] = message.text
         data['user_id'] = message.from_user.id
         await state.update_data(count=data['count'])
         print(data)
         await db.add_item_to_card(state,data['user_id'])
-        await message.answer(f'Товар успешно доабвлен в корзину',reply_markup=kb.back)
-        #if message.text == "Назад":
-            #await state.finish() 
-            #await message.answer(f'Каталог',reply_markup=kb.catalog_list)  Не работает кнопка не срабатывает
-            #await states.NewOrder.type.set()
-            #return
-        await states.NewOrder.type.set()
+        await message.answer(f'Товар успешно добавлен в корзину',reply_markup=kb.back)
+        await states.NewOrder.next()
+
+@dp.message_handler(state=states.NewOrder.back_check)
+async def back_check(message: types.Message,state:FSMContext):
+    if message.text=="Добавить товар":
+        items = await db.find_item(state)
+    
+        for item in items:
+            item_id,name, desc, price, photo_id = item
+            print("item :",item)
+            make_order = InlineKeyboardMarkup(row_width=1)
+            make_order.add(InlineKeyboardButton(text='Заказать', callback_data=str(item_id)))
+            await message.answer_photo(photo_id, caption=f'Название: {name}\nОписание: {desc}\nЦена: {price}', reply_markup=make_order)
+            await states.NewOrder.item.set()
+    elif message.text=="Каталог":
+        await message.answer("Каталог",reply_markup=kb.catalog_list)
+        await states.NewOrder.first()
+ #сделать вывод корзины       
         
 @dp.message_handler(state=states.InfoCard.adress)
 async def add_adress(message: types.Message, state:FSMContext):
