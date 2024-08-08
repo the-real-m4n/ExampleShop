@@ -19,3 +19,6 @@ class InfoCard(StatesGroup):
     adress = State()
     phone = State()
     comment = State()
+
+class Delete_or_Add_Card_Item(StatesGroup):
+    item_id= State()
