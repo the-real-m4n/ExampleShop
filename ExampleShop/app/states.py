@@ -8,6 +8,7 @@ class NewItem(StatesGroup):
     desc = State()
     price = State()
     photo = State()
+    existence=State()
 
 class NewOrder(StatesGroup):
     type= State()
@@ -15,10 +16,12 @@ class NewOrder(StatesGroup):
     count= State()
     back_check=State()
     
-class InfoCard(StatesGroup):
-    adress = State()
-    phone = State()
-    comment = State()
 
-class Delete_or_Add_Card_Item(StatesGroup):
-    item_id= State()
+class RegOrder(StatesGroup):
+    adress= State()
+    phone_number=State()
+    comment=State()
+
+class DeleteItem(StatesGroup):
+    type=State()
+    item_id=State()

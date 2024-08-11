@@ -16,7 +16,8 @@ async def start_db():
                 desc TEXT,
                 price TEXT,
                 photo TEXT,
-                type TEXT
+                type TEXT,
+                existence INTEGER
                 )""")
     cur.execute("""CREATE TABLE IF NOT EXISTS card (
                 card_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,29 +41,47 @@ async def add_id(user_id):
         db.commit()
     db.close()
 
-async def add_item(state):
+async def add_item(data):
     db = sq.connect("bot_db.db")
     cur = db.cursor()
-    async with state.proxy() as data:
-        cur.execute("INSERT INTO items (name,desc,price,photo,type) VALUES (?,?,?,?,?)",
+    cur.execute("INSERT INTO items (name,desc,price,photo,type,existence) VALUES (?,?,?,?,?,?)",
                     (data['name'],
                      data['desc'], 
                      data['price'], 
                      data['photo'], 
-                     data['type'])
+                     data['type'],
+                     data['existence'])
                     )
-        db.commit()
+    db.commit()
     db.close()
+
+async def find_item_to_delete(state):
+    db = sq.connect("bot_db.db")
+    cur = db.cursor()
+    async with state.proxy() as data:
+        print("Type to delete in sql",data) 
+        cur.execute("""SELECT item_id,name,photo FROM items WHERE type == ?""", (data['type'],))
+        items = cur.fetchall()
+    db.close()
+    return items
 
 async def find_item(state):
     db = sq.connect("bot_db.db")
     cur = db.cursor() 
     async with state.proxy() as data:
-        cur.execute("""SELECT item_id,name,desc,price,photo FROM items WHERE type == ?""", (data['type'],))
+        cur.execute("""SELECT item_id,name,desc,price,photo,existence FROM items WHERE type == ?""", (data['type'],))
         items = cur.fetchall()
     db.close()
     return items
 
+async def del_item(data):
+    db = sq.connect("bot_db.db")
+    cur = db.cursor()
+    
+    print("DATA TO DELETE", data)
+    cur.execute("DELETE FROM items WHERE item_id=?",(data["item_id"],))
+    db.commit()
+    db.close()
 
 async def add_item_to_card(state, user_id):
     db = sq.connect("bot_db.db")
@@ -102,7 +121,7 @@ async def add_item_to_card(state, user_id):
                            WHERE user_id = ?""",
                         (items_json, counts_json, user_id))
         else:
-            cur.execute("""INSERT INTO card (user_id, items_id, count) 
+            cur.execute("""INSERT INTO card (user_id, item_id, count) 
                            VALUES (?, ?, ?)""",
                         (user_id, items_json, counts_json))
         
@@ -206,14 +225,16 @@ async def update_item_count(user_id, item_id, increase=True):
 
 
 
-async def add_order_info(state):
+async def add_order_info(state,user_id):
     db = sq.connect("bot_db.db")
     cur = db.cursor() 
     async with state.proxy() as data:
-        cur.execute("""INSERST INTO card (adress,phone_number,comment) VALUES(?,?,?)""",(
+        cur.execute("""UPDATE card SET adress=?,phone_number=?,comment=?  WHERE user_id=?""",(
             data['adress'],
-            data['phone_number'],
-            data['comment']
+            data['phone'],
+            data['comments'],
+            user_id
         ))
         db.commit()
     db.close()
+
