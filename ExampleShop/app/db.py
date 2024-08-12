@@ -55,7 +55,7 @@ async def add_item(data):
     db.commit()
     db.close()
 
-async def find_item_to_delete(state):
+async def find_item_to_delete_or_chage_existence(state):
     db = sq.connect("bot_db.db")
     cur = db.cursor()
     async with state.proxy() as data:
@@ -82,6 +82,23 @@ async def del_item(data):
     cur.execute("DELETE FROM items WHERE item_id=?",(data["item_id"],))
     db.commit()
     db.close()
+
+async def change_item(data):
+    db = sq.connect("bot_db.db")
+    cur = db.cursor()
+    sql_query = f"UPDATE items SET {data['field_to_edit']} = ? WHERE item_id = ?"
+    cur.execute(sql_query, (data['new_value'], data['item_id']))
+    db.commit()
+    db.close()
+
+async def change_existence(data):
+    db = sq.connect("bot_db.db")
+    cur = db.cursor()
+    print("DATA TO change existence", data)
+    cur.execute("UPDATE items SET existence=? WHERE item_id=?",(data['existence'],data["item_id"]))
+    db.commit()
+    db.close()
+
 
 async def add_item_to_card(state, user_id):
     db = sq.connect("bot_db.db")

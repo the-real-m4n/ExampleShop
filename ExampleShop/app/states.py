@@ -25,3 +25,15 @@ class RegOrder(StatesGroup):
 class DeleteItem(StatesGroup):
     type=State()
     item_id=State()
+
+class StopList(StatesGroup):
+    type=State()
+    item_id=State()
+    existence=State()
+    
+class ChangeItem(StatesGroup):
+    type=State()
+    item_id=State()
+    field_to_edit=State()
+    new_value=State()
+

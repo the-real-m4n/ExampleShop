@@ -47,7 +47,7 @@ async def Pick_type(call: types.CallbackQuery, state:FSMContext):
     async with state.proxy() as data:
         data['type']=call.data
         print("TYPE ITEM TO DELETE", )
-    items = await db.find_item_to_delete(state)
+    items = await db.find_item_to_delete_or_chage_existence(state)
     for item in items:
         item_id,name,photo_id = item
         print("item to delete:",item) 
@@ -66,8 +66,112 @@ async def deleting_item(call: types.CallbackQuery, state:FSMContext):
             await call.message.answer("Позиция успешно удалена")
             await state.finish()
 
+@dp.message_handler(text="Изменить наличие")                               # стоп лист 
+async def change_stop_list(message: types.message):
+    await message.answer(f'Выберите товар для изменения наличия',reply_markup=kb.catalog_list)
+    await states.StopList.type.set()
 
-@dp.message_handler(text='Добавить позицию')# Добавление новых товаров 
+@dp.callback_query_handler(state=states.StopList.type)
+async def Pick_type_to_change_stop_list(call: types.CallbackQuery, state:FSMContext):
+    async with state.proxy() as data:
+        data['type']=call.data
+        print("TYPE ITEM TO Chage stop list ",data )
+    items = await db.find_item_to_delete_or_chage_existence(state)
+    for item in items:
+        item_id,name,photo_id = item
+        print("item to stop list:",item) 
+        chage_existence_item = InlineKeyboardMarkup(row_width=1)
+        chage_existence_item.add(InlineKeyboardButton(text='Изменить', callback_data=str(item_id)))
+        await call.message.answer_photo(photo_id, caption=f'Название: {name}', reply_markup=chage_existence_item)
+    await states.StopList.next()
+
+@dp.callback_query_handler(state=states.StopList.item_id)
+async def pick_item_to_chage_state(call: types.CallbackQuery, state:FSMContext):
+    async with state.proxy() as data:
+        data['item_id']=call.data
+        print("ID ITEM TO Chage stop list ",data )
+        await call.message.answer("Укажите наличие",reply_markup=kb.existence_kb)
+        await states.StopList.next()
+
+
+@dp.callback_query_handler(state=states.StopList.existence)
+async def chage_item_state(call: types.CallbackQuery, state:FSMContext):
+    async with state.proxy() as data:
+        data['existence']=call.data
+        print("ID ITEM TO Chage stop list ",data )
+        copy_data=data
+        await call.message.answer("Изменения сохранены!",reply_markup=kb.main_admin)
+        try:
+            await db.change_existence(copy_data)
+            await state.finish()
+        except:
+            await call.message.answer("Произошла ошибка!")
+        
+
+@dp.message_handler(text="Редактировать товар")                        # Редактирование товаров 
+async def chage_item_handler(message: types.message):
+    await message.answer(f'Выберите товар для изменения',reply_markup=kb.catalog_list)
+    await states.ChangeItem.type.set()
+
+@dp.callback_query_handler(state=states.ChangeItem.type)
+async def Pick_type_to_change(call: types.CallbackQuery, state:FSMContext):
+    async with state.proxy() as data:
+        data['type']=call.data
+        print("TYPE ITEM TO Chage stop list ",data )
+    items = await db.find_item(state)
+    for item in items:
+        item_id,name,desc,price,photo_id = item[:5]
+        print("items to change:",item)
+        pick_item=InlineKeyboardMarkup(row_width=1)
+        pick_item.add(InlineKeyboardButton(text='Редактировать', callback_data=str(item_id)))
+        await call.message.answer_photo(photo_id, caption=f'Название: {name}\nОписание: {desc}\nЦена: {price}', reply_markup=pick_item)
+    await states.ChangeItem.next()
+
+@dp.callback_query_handler(state=states.ChangeItem.item_id)
+async def Pick_item_id_to_change(call: types.CallbackQuery, state:FSMContext):
+     async with state.proxy() as data:
+        data['item_id'] = call.data
+        print('ITEM ID TO CHAGE :' ,data['item_id'])
+        chage_item_kb=InlineKeyboardMarkup(row_width=3)
+        chage_item_kb.add(InlineKeyboardButton(text="Наименование",callback_data='name'),
+                          InlineKeyboardButton(text="Описание",    callback_data='desc'),
+                          InlineKeyboardButton(text="Стоймость",   callback_data='price'),
+                          InlineKeyboardButton(text='Фото',        callback_data='photo')) 
+        await call.message.answer(f'Выберите характеристику которую нужно изменить',reply_markup=chage_item_kb)
+        await states.ChangeItem.next()
+
+@dp.callback_query_handler(state=states.ChangeItem.field_to_edit)
+async def get_field_to_chage_item(call: types.CallbackQuery, state:FSMContext):
+    async with state.proxy() as data:
+        data['field_to_edit'] = call.data
+        print('field to edit TO CHAGE :' ,data['field_to_edit'])
+        await call.message.answer(f'Введите новое значение')
+        await states.ChangeItem.next()
+
+@dp.message_handler(content_types=['photo','text'], state=states.ChangeItem.new_value)
+async def get_new_value_to_change_item(message: types.Message, state:FSMContext):
+    async with state.proxy() as data:
+        if data['field_to_edit']=='price':
+            if not message.text.isdigit():
+                await message.reply("Введите корректное количество")
+                message = await dp.bot.next_update()
+            else:
+                data['new_value']= message.text
+        elif data['field_to_edit']=='photo':
+            data['new_value']=message.photo[0].file_id
+        else:
+            data['new_value']= message.text
+
+        copy_data=dict(data)
+        print("COPY : ", copy_data)
+        await db.change_item(copy_data)
+        await message.answer(f"Позизция успешно изменена",reply_markup=kb.admin_panel)
+        await state.finish()
+
+
+
+
+@dp.message_handler(text='Добавить позицию')                           # Добавление новых товаров 
 async def add_item(message: types.message):
     if message.from_user.id==int(os.getenv("ADMIN_ID")):
         await states.NewItem.type.set()
@@ -124,8 +228,7 @@ async def add_item_price(message: types.Message, state:FSMContext):
 @dp.message_handler(lambda message: not message.photo, state=states.NewItem.photo)# проверка на фото
 async def add_item_photo_check(message: types.Message):
     await message.answer(f'Это не фото')
-    
-    
+     
 @dp.message_handler(content_types=['photo'], state=states.NewItem.photo)#Добавление фото товара и сохранение в базу данных
 async def add_item_photo(message: types.Message, state:FSMContext):
     async with state.proxy() as data:
@@ -270,13 +373,13 @@ async def add_adress(message: types.Message, state:FSMContext):
     else:
         async with state.proxy() as data:
             data['adress']=message.text
-        await message.answer(f'Укажите номер телефона с использованием +7',reply_markup=kb.cancel)
+        await message.answer(f'Укажите номер телефона начиная с цифры 8',reply_markup=kb.cancel)
         await states.RegOrder.next()
 
-@dp.message_handler(lambda message: not (len(message.text) == 12 and message.text.isdigit() and not message.text.startswith('7')), state=states.RegOrder.phone_number)
+@dp.message_handler(lambda message: not (len(message.text) == 11 and message.text.isdigit() and not message.text.startswith('7')), state=states.RegOrder.phone_number)
 async def phone_check(message: types.Message):
-    if len(message.text) != 12:
-        await message.answer('Вы ввели неправильный номер: длина должна быть 12 символов.')
+    if len(message.text) != 11:
+        await message.answer('Вы ввели неправильный номер: длина должна быть 11 символов.')
     elif not message.text.isdigit():
         await message.answer('Вы ввели неправильный номер: номер должен содержать только цифры.')
 
@@ -292,8 +395,6 @@ async def add_phone(message: types.Message, state:FSMContext):
             data['phone']=message.text
         await message.answer(f'Добавьте комментарий к заказу',reply_markup=kb.cancel)
         await states.RegOrder.next()
-
-
 
 @dp.message_handler(state=states.RegOrder.comment)                 #Добавления коммента для оформления заказа
 async def add_comments(message: types.Message, state:FSMContext):
@@ -406,4 +507,5 @@ async def wrong_command(message: types.Message):
 if __name__=='__main__':
     executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
 
-#добавить в админку возможность изменения стоп листа
+#прикрутить юкассу и немного доделать оформление заказа (итогувую стоймость)
+#подумать как реализовать отправку заказов(чеков на заказ) в ресторан (мб рассылка по почте или на аккаунт тг)

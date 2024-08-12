@@ -8,7 +8,7 @@ main_admin=ReplyKeyboardMarkup(resize_keyboard=True)# клавиатура дл�
 main_admin.add("Заказать").add('Корзина').add("Контакты").add("Меню Администратора")
 
 admin_panel=ReplyKeyboardMarkup(resize_keyboard=True)# админ панель
-admin_panel.add("Добавить позицию").add('Удалить позицию').add('Изменить цену').add("Назад").add("Изменить наличие")
+admin_panel.add("Добавить позицию").add('Удалить позицию').add('Редактировать товар').add("Изменить наличие").add("Назад")
 
 catalog_list= InlineKeyboardMarkup(row_width=4)
 catalog_list.add(InlineKeyboardButton(text='Товар 1', callback_data='Товар 1'),
